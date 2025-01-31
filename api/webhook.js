@@ -2,7 +2,7 @@ const { Octokit } = require("@octokit/rest");
 const crypto = require('crypto');
 const OpenAI = require('openai');
 
-export const maxDuration = 60; // This function can run for a maximum of 60 seconds
+export const maxDuration = 60;
 
 // Initialize Octokit with GitHub token
 const octokit = new Octokit({
@@ -29,7 +29,7 @@ const verifyWebhookSignature = (req) => {
   }
 };
 
-// Function to get PR diff with commit info
+// Function to get PR diff with commit info and positions
 async function getPRDiff(owner, repo, pull_number) {
   const [{ data: files }, { data: commits }] = await Promise.all([
     octokit.pulls.listFiles({
@@ -44,13 +44,34 @@ async function getPRDiff(owner, repo, pull_number) {
     })
   ]);
   
-  return {
-    files: files.map(file => ({
+  // Process each file to get position information
+  const processedFiles = files.map(file => {
+    const positions = new Map();
+    let position = 0;
+    
+    if (file.patch) {
+      const lines = file.patch.split('\n');
+      lines.forEach((line, index) => {
+        if (!line.startsWith('-')) {
+          positions.set(position, {
+            line_number: line.startsWith('+') ? parseInt(line.match(/\@\@ -\d+,\d+ \+(\d+)/)?.[1] || '1') + position : null,
+            content: line
+          });
+          position++;
+        }
+      });
+    }
+    
+    return {
       filename: file.filename,
       patch: file.patch || '',
       status: file.status,
-      blob_url: file.blob_url,
-    })),
+      positions
+    };
+  });
+
+  return {
+    files: processedFiles,
     head_sha: commits[commits.length - 1].sha
   };
 }
@@ -69,7 +90,9 @@ For each issue found, provide:
 4. A suggested fix
 
 Format each issue as: "LINE {line_number}: [{issue_type}] {description}"
-Follow with a specific suggestion for improvement.`;
+Follow with a specific suggestion for improvement.
+
+Important: Ensure line numbers correspond to the actual lines in the file where the issues occur.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4",
@@ -81,39 +104,51 @@ Follow with a specific suggestion for improvement.`;
   return completion.choices[0].message.content;
 }
 
-// Function to parse AI review comments and create review comments
+// Function to create review comments
 async function createReviewComments(owner, repo, pull_number, head_sha, fileReviews) {
   const comments = [];
   
   for (const review of fileReviews) {
     const lines = review.analysis.split('\n');
-    let currentLine = '';
-    let currentComment = '';
+    let currentIssue = null;
+    let currentSuggestion = '';
     
     for (const line of lines) {
-      if (line.match(/^LINE \d+:/)) {
-        // If we have a previous comment ready, push it
-        if (currentLine && currentComment) {
-          comments.push({
-            path: review.filename,
-            line: parseInt(currentLine.match(/\d+/)[0]),
-            body: currentComment.trim()
-          });
+      const lineMatch = line.match(/^LINE (\d+): \[(.+?)\] (.+)/);
+      if (lineMatch) {
+        if (currentIssue && currentSuggestion) {
+          // Find the correct position for the comment
+          const position = findPositionForLine(review.positions, parseInt(currentIssue.line));
+          if (position !== null) {
+            comments.push({
+              path: review.filename,
+              position,
+              body: `**${currentIssue.type}**: ${currentIssue.description}\n\n${currentSuggestion}`
+            });
+          }
         }
-        currentLine = line;
-        currentComment = '';
-      } else if (line.trim()) {
-        currentComment += line + '\n';
+        
+        currentIssue = {
+          line: lineMatch[1],
+          type: lineMatch[2],
+          description: lineMatch[3]
+        };
+        currentSuggestion = '';
+      } else if (line.startsWith('Suggestion:')) {
+        currentSuggestion = line;
       }
     }
     
-    // Push the last comment
-    if (currentLine && currentComment) {
-      comments.push({
-        path: review.filename,
-        line: parseInt(currentLine.match(/\d+/)[0]),
-        body: currentComment.trim()
-      });
+    // Handle the last comment
+    if (currentIssue && currentSuggestion) {
+      const position = findPositionForLine(review.positions, parseInt(currentIssue.line));
+      if (position !== null) {
+        comments.push({
+          path: review.filename,
+          position,
+          body: `**${currentIssue.type}**: ${currentIssue.description}\n\n${currentSuggestion}`
+        });
+      }
     }
   }
 
@@ -131,9 +166,18 @@ async function createReviewComments(owner, repo, pull_number, head_sha, fileRevi
   }
 }
 
+// Helper function to find the correct position for a line number
+function findPositionForLine(positions, lineNumber) {
+  for (const [position, data] of positions.entries()) {
+    if (data.line_number === lineNumber) {
+      return position;
+    }
+  }
+  return null;
+}
+
 // Main webhook handler
 export default async function handler(req, res) {
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -186,4 +230,4 @@ export default async function handler(req, res) {
     console.error('Error processing webhook:', error);
     res.status(500).json({ error: error.message });
   }
-} 
+}
