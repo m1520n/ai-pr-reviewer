@@ -7,19 +7,11 @@ const octokit = new Octokit({
 const githubService = {
   async getPRFiles(owner, repo, pull_number) {
     try {
-      console.log(`Fetching files for PR #${pull_number}...`);
       const { data: files } = await octokit.pulls.listFiles({
         owner,
         repo,
         pull_number,
       });
-
-      console.log('Raw files:', files.map(f => ({
-        filename: f.filename,
-        status: f.status,
-        has_patch: !!f.patch,
-        patch_length: f.patch?.length || 0
-      })));
 
       // Process files and calculate positions
       const filteredFiles = files
@@ -81,12 +73,6 @@ const githubService = {
             raw_patch: file.patch
           };
         });
-
-      console.log('Processed files:', filteredFiles.map(f => ({
-        filename: f.filename,
-        status: f.status,
-        positions: Array.from(f.positions.entries())
-      })));
       
       return filteredFiles;
     } catch (error) {

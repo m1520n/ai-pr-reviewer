@@ -15,7 +15,6 @@ const prService = {
 
       // Get and analyze files
       const files = await githubService.getPRFiles(owner, repo, prNumber);
-      console.log(`Found ${files.length} files to review:`, files.map(f => f.filename));
 
       const analyses = await aiService.analyzeFiles(files);
       console.log('AI analyses completed:', analyses);

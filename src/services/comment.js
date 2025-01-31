@@ -1,8 +1,6 @@
 const commentService = {
   parseAnalysisToComments(analysis) {
-    try {
-      console.log('Parsing analysis:', analysis);
-      
+    try {      
       // Split the analysis into lines and process each line
       const comments = analysis.analysis
         .split('\n')
@@ -24,7 +22,6 @@ const commentService = {
         })
         .filter(Boolean);  // Remove null entries
 
-      console.log(`Parsed ${comments.length} comments for ${analysis.filename}:`, comments);
       return comments;
     } catch (error) {
       console.error('Error parsing analysis:', error);
@@ -34,9 +31,8 @@ const commentService = {
 
   processAnalyses(analyses) {
     try {
-      console.log('Processing analyses:', analyses);
       const allComments = analyses.flatMap(analysis => this.parseAnalysisToComments(analysis));
-      console.log('All processed comments:', allComments);
+      
       return allComments;
     } catch (error) {
       console.error('Error processing analyses:', error);
