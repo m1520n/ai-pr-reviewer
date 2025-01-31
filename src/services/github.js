@@ -14,7 +14,6 @@ const githubService = {
         pull_number,
       });
 
-      // Log raw file data for debugging
       console.log('Raw files:', files.map(f => ({
         filename: f.filename,
         status: f.status,
@@ -27,17 +26,33 @@ const githubService = {
         .filter(file => file.status !== 'removed')
         .map(file => {
           const positions = new Map();
-          let position = 0;
+          let currentLine = 0;
           
           if (file.patch) {
-            const lines = file.patch.split('\n');
-            lines.forEach(line => {
-              if (!line.startsWith('-')) {
-                positions.set(position, {
-                  line_number: parseInt(line.match(/^@@ -\d+,\d+ \+(\d+)/)?.at(1) || '1') + position,
-                  content: line
+            const hunks = file.patch.split(/^@@/m);
+            
+            // Process each hunk
+            hunks.forEach(hunk => {
+              if (!hunk.trim()) return;
+              
+              // Parse hunk header
+              const headerMatch = hunk.match(/^[ -](\d+),\d+ \+(\d+),\d+/);
+              if (headerMatch) {
+                currentLine = parseInt(headerMatch[2]);
+                
+                // Process hunk lines
+                const lines = hunk.split('\n').slice(1);
+                let position = 0;
+                
+                lines.forEach(line => {
+                  if (line.startsWith('+') || line.startsWith(' ')) {
+                    positions.set(currentLine, position);
+                    currentLine++;
+                  }
+                  if (!line.startsWith('-')) {
+                    position++;
+                  }
                 });
-                position++;
               }
             });
           }
@@ -46,11 +61,16 @@ const githubService = {
             filename: file.filename,
             patch: file.patch || 'No changes available',
             status: file.status,
-            positions
+            positions,
+            raw_patch: file.patch // Keep raw patch for debugging
           };
         });
 
-      console.log('Filtered files:', filteredFiles.map(f => f.filename));
+      console.log('Processed files:', filteredFiles.map(f => ({
+        filename: f.filename,
+        positions: Array.from(f.positions.entries())
+      })));
+      
       return filteredFiles;
     } catch (error) {
       console.error('Error in getPRFiles:', error);
@@ -59,11 +79,13 @@ const githubService = {
   },
 
   findPositionForLine(file, lineNumber) {
-    for (const [position, data] of file.positions.entries()) {
-      if (data.line_number === lineNumber) {
-        return position;
-      }
+    const position = file.positions.get(lineNumber);
+    if (position !== undefined) {
+      console.log(`Found position ${position} for line ${lineNumber} in ${file.filename}`);
+      return position;
     }
+    console.log(`No position found for line ${lineNumber} in ${file.filename}`);
+    console.log('Available positions:', Array.from(file.positions.entries()));
     return null;
   },
 
@@ -77,17 +99,22 @@ const githubService = {
       // Convert line numbers to positions
       const reviewComments = comments.map(comment => {
         const file = files.find(f => f.filename === comment.path);
-        const position = file ? this.findPositionForLine(file, comment.line) : null;
-        
+        if (!file) {
+          console.log(`File not found: ${comment.path}`);
+          return null;
+        }
+
+        const position = this.findPositionForLine(file, comment.line);
         if (position === null) {
           console.log(`Could not find position for line ${comment.line} in ${comment.path}`);
+          console.log('File patch:', file.raw_patch);
           return null;
         }
 
         return {
-          ...comment,
+          path: comment.path,
           position,
-          line: undefined // Remove line as we're using position
+          body: comment.body
         };
       }).filter(Boolean);
 
