@@ -14,16 +14,31 @@ const githubService = {
         pull_number,
       });
 
+      // Log raw file data for debugging
+      console.log('Raw files:', files.map(f => ({
+        filename: f.filename,
+        status: f.status,
+        has_patch: !!f.patch,
+        patch_length: f.patch?.length || 0
+      })));
+
+      // Less restrictive filtering
       const filteredFiles = files
-        .filter(file => file.patch && file.patch.length < 1000)
+        .filter(file => {
+          // Accept any file that has changes and isn't deleted
+          const isValid = file.status !== 'removed';
+          if (!isValid) {
+            console.log(`Skipping file ${file.filename}: removed file`);
+          }
+          return isValid;
+        })
         .map(file => ({
           filename: file.filename,
-          patch: file.patch,
+          patch: file.patch || 'No changes available',
           status: file.status
-        }))
-        .slice(0, 5);
+        }));
 
-      console.log(`Found ${files.length} total files, filtered to ${filteredFiles.length}`);
+      console.log('Filtered files:', filteredFiles.map(f => f.filename));
       return filteredFiles;
     } catch (error) {
       console.error('Error in getPRFiles:', error);
