@@ -4,12 +4,11 @@ const OpenAI = require('openai');
 
 export const maxDuration = 60;
 
-// Initialize Octokit with GitHub token
+// Initialize clients
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN
 });
 
-// Initialize OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
@@ -29,9 +28,9 @@ const verifyWebhookSignature = (req) => {
   }
 };
 
-// Function to get PR diff and commit SHA
+// Function to get PR details
 async function getPRDetails(owner, repo, pull_number) {
-  const [{ data: files }, { data: commits }] = await Promise.all([
+  const [{ data: files }, { data: commits }, { data: pr }] = await Promise.all([
     octokit.pulls.listFiles({
       owner,
       repo,
@@ -41,35 +40,72 @@ async function getPRDetails(owner, repo, pull_number) {
       owner,
       repo,
       pull_number,
+    }),
+    octokit.pulls.get({
+      owner,
+      repo,
+      pull_number,
     })
   ]);
 
   return {
     files,
-    head_sha: commits[commits.length - 1].sha
+    head_sha: commits[commits.length - 1].sha,
+    pr
   };
+}
+
+// Function to analyze the entire PR
+async function analyzePR(pr, files) {
+  const prompt = `Review this pull request holistically:
+
+Title: ${pr.title}
+Description: ${pr.body || 'No description provided'}
+
+Changed files:
+${files.map(file => `
+${file.filename}
+\`\`\`
+${file.patch || 'No diff available'}
+\`\`\`
+`).join('\n')}
+
+Provide:
+1. Overall assessment of the changes
+2. Cross-file impacts and potential issues
+3. General suggestions for improvement
+4. Any architectural concerns
+
+Format your response in markdown with clear sections.`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.7,
+    max_tokens: 1500
+  });
+
+  return completion.choices[0].message.content;
 }
 
 // Function to analyze a single file
 async function analyzeFile(filename, patch) {
-  const prompt = `Review this code file and provide specific feedback:
+  const prompt = `Review this file and identify specific issues:
 Filename: ${filename}
 
+\`\`\`
 ${patch}
+\`\`\`
 
-Analyze the code for:
-1. Bugs and potential issues
-2. Security concerns
-3. Performance problems
-4. Code style issues
-5. Best practices violations
+For each issue found:
+1. Identify the specific line number in the diff
+2. Classify the issue type (bug, security, performance, style, best practice)
+3. Explain the problem
+4. Provide a concrete suggestion for improvement
 
-For each issue, specify:
-1. The exact line number in the diff
-2. A clear description of the problem
-3. A specific suggestion for improvement
-
-Format each issue as a separate review comment that can be placed on the specific line.`;
+Format each issue as:
+LINE <number>: [<type>] <description>
+Suggestion: <specific improvement>`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4",
@@ -79,6 +115,69 @@ Format each issue as a separate review comment that can be placed on the specifi
   });
 
   return completion.choices[0].message.content;
+}
+
+// Function to create review comments
+async function createReview(owner, repo, pull_number, head_sha, fileAnalyses, overallAnalysis) {
+  const comments = [];
+
+  // Process each file's analysis
+  for (const analysis of fileAnalyses) {
+    const lines = analysis.content.split('\n');
+    let currentIssue = null;
+    let currentSuggestion = '';
+
+    for (const line of lines) {
+      const lineMatch = line.match(/^LINE (\d+): \[(.+?)\] (.+)/);
+      if (lineMatch) {
+        if (currentIssue && currentSuggestion) {
+          comments.push({
+            path: analysis.filename,
+            position: parseInt(currentIssue.line),
+            body: `**${currentIssue.type}**: ${currentIssue.description}\n\n${currentSuggestion}`
+          });
+        }
+        currentIssue = {
+          line: lineMatch[1],
+          type: lineMatch[2],
+          description: lineMatch[3]
+        };
+        currentSuggestion = '';
+      } else if (line.startsWith('Suggestion:')) {
+        currentSuggestion = line;
+      }
+    }
+
+    // Add the last comment
+    if (currentIssue && currentSuggestion) {
+      comments.push({
+        path: analysis.filename,
+        position: parseInt(currentIssue.line),
+        body: `**${currentIssue.type}**: ${currentIssue.description}\n\n${currentSuggestion}`
+      });
+    }
+  }
+
+  // Create the review with inline comments
+  if (comments.length > 0) {
+    await octokit.pulls.createReview({
+      owner,
+      repo,
+      pull_number,
+      commit_id: head_sha,
+      event: 'COMMENT',
+      comments,
+      body: overallAnalysis
+    });
+  } else {
+    // If no inline comments, still post the overall analysis
+    await octokit.issues.createComment({
+      owner,
+      repo,
+      issue_number: pull_number,
+      body: overallAnalysis
+    });
+  }
 }
 
 export default async function handler(req, res) {
@@ -100,63 +199,21 @@ export default async function handler(req, res) {
       const repo = repository.name;
 
       // Get PR details
-      const { files, head_sha } = await getPRDetails(owner, repo, prNumber);
+      const { files, head_sha, pr } = await getPRDetails(owner, repo, prNumber);
 
-      // Create review comments
-      const comments = [];
-      
-      // Analyze each file and create review comments
-      for (const file of files) {
-        if (file.patch) {
-          const analysis = await analyzeFile(file.filename, file.patch);
-          
-          // Split analysis into separate comments
-          const lines = analysis.split('\n');
-          let currentComment = '';
-          let lineNumber = null;
-          
-          for (const line of lines) {
-            if (line.trim().startsWith('LINE')) {
-              // If we have a previous comment ready, add it
-              if (currentComment && lineNumber) {
-                comments.push({
-                  path: file.filename,
-                  line: lineNumber,
-                  body: currentComment.trim()
-                });
-              }
-              
-              // Start new comment
-              lineNumber = parseInt(line.match(/LINE (\d+)/)[1]);
-              currentComment = line + '\n';
-            } else if (line.trim()) {
-              currentComment += line + '\n';
-            }
-          }
-          
-          // Add the last comment if exists
-          if (currentComment && lineNumber) {
-            comments.push({
-              path: file.filename,
-              line: lineNumber,
-              body: currentComment.trim()
-            });
-          }
-        }
-      }
+      // Analyze the entire PR
+      const overallAnalysis = await analyzePR(pr, files);
 
-      // Create the review with inline comments
-      if (comments.length > 0) {
-        await octokit.pulls.createReview({
-          owner,
-          repo,
-          pull_number: prNumber,
-          commit_id: head_sha,
-          event: 'COMMENT',
-          comments: comments,
-          body: "I've reviewed the changes and left inline comments with suggestions."
-        });
-      }
+      // Analyze each file individually
+      const fileAnalyses = await Promise.all(
+        files.map(async file => ({
+          filename: file.filename,
+          content: await analyzeFile(file.filename, file.patch)
+        }))
+      );
+
+      // Create review with both inline comments and overall analysis
+      await createReview(owner, repo, prNumber, head_sha, fileAnalyses, overallAnalysis);
     }
 
     res.status(200).json({ message: 'Webhook processed successfully' });
