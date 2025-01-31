@@ -29,53 +29,109 @@ const verifyWebhookSignature = (req) => {
   }
 };
 
-// Function to get PR diff
+// Function to get PR diff with commit info
 async function getPRDiff(owner, repo, pull_number) {
-  const { data: files } = await octokit.pulls.listFiles({
-    owner,
-    repo,
-    pull_number,
-  });
+  const [{ data: files }, { data: commits }] = await Promise.all([
+    octokit.pulls.listFiles({
+      owner,
+      repo,
+      pull_number,
+    }),
+    octokit.pulls.listCommits({
+      owner,
+      repo,
+      pull_number,
+    })
+  ]);
   
-  return files.map(file => ({
-    filename: file.filename,
-    patch: file.patch || '',
-    status: file.status
-  }));
+  return {
+    files: files.map(file => ({
+      filename: file.filename,
+      patch: file.patch || '',
+      status: file.status,
+      blob_url: file.blob_url,
+    })),
+    head_sha: commits[commits.length - 1].sha
+  };
 }
 
-// Function to analyze PR with AI
-async function analyzeWithAI(prDetails, diff) {
-  const prompt = `Please review this pull request:
-Title: ${prDetails.title}
-Description: ${prDetails.body || 'No description provided'}
+// Function to analyze specific file content
+async function analyzeFileContent(filename, content) {
+  const prompt = `Review this code file and identify specific issues with line numbers:
+Filename: ${filename}
 
-Changes:
-${diff.map(file => `
-File: ${file.filename}
-Status: ${file.status}
-Diff:
-${file.patch || 'No diff available'}`).join('\n')}
+${content}
 
-Please provide a code review focusing on:
-1. Potential bugs or issues
-2. Code style and best practices
-3. Security concerns
-4. Performance implications
-5. Suggestions for improvement
+For each issue found, provide:
+1. The line number
+2. The type of issue (bug, security, performance, style, or best practice)
+3. A specific description of the problem
+4. A suggested fix
 
-Format your response in a clear, constructive manner.`;
+Format each issue as: "LINE {line_number}: [{issue_type}] {description}"
+Follow with a specific suggestion for improvement.`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.7,
-    max_tokens: 1500
+    max_tokens: 1000
   });
 
   return completion.choices[0].message.content;
 }
 
+// Function to parse AI review comments and create review comments
+async function createReviewComments(owner, repo, pull_number, head_sha, fileReviews) {
+  const comments = [];
+  
+  for (const review of fileReviews) {
+    const lines = review.analysis.split('\n');
+    let currentLine = '';
+    let currentComment = '';
+    
+    for (const line of lines) {
+      if (line.match(/^LINE \d+:/)) {
+        // If we have a previous comment ready, push it
+        if (currentLine && currentComment) {
+          comments.push({
+            path: review.filename,
+            line: parseInt(currentLine.match(/\d+/)[0]),
+            body: currentComment.trim()
+          });
+        }
+        currentLine = line;
+        currentComment = '';
+      } else if (line.trim()) {
+        currentComment += line + '\n';
+      }
+    }
+    
+    // Push the last comment
+    if (currentLine && currentComment) {
+      comments.push({
+        path: review.filename,
+        line: parseInt(currentLine.match(/\d+/)[0]),
+        body: currentComment.trim()
+      });
+    }
+  }
+
+  // Create a review with inline comments
+  if (comments.length > 0) {
+    await octokit.pulls.createReview({
+      owner,
+      repo,
+      pull_number,
+      commit_id: head_sha,
+      body: "I've reviewed the changes and left inline comments with suggestions.",
+      event: 'COMMENT',
+      comments: comments
+    });
+  }
+}
+
+// Main webhook handler
 export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -97,18 +153,30 @@ export default async function handler(req, res) {
         const owner = repository.owner.login;
         const repo = repository.name;
 
-        // Get PR diff
-        const diff = await getPRDiff(owner, repo, prNumber);
+        // Get PR diff and commit info
+        const { files, head_sha } = await getPRDiff(owner, repo, prNumber);
 
-        // Analyze with AI
-        const aiReview = await analyzeWithAI(pull_request, diff);
+        // Analyze each file individually
+        const fileReviews = await Promise.all(
+          files.map(async (file) => ({
+            filename: file.filename,
+            analysis: await analyzeFileContent(file.filename, file.patch)
+          }))
+        );
 
-        // Post review comment
+        // Create inline review comments
+        await createReviewComments(owner, repo, prNumber, head_sha, fileReviews);
+
+        // Create a summary comment
+        const summary = fileReviews
+          .map(review => `## ${review.filename}\n${review.analysis}`)
+          .join('\n\n');
+
         await octokit.issues.createComment({
           owner,
           repo,
           issue_number: prNumber,
-          body: aiReview
+          body: `# PR Review Summary\n\n${summary}\n\n> Note: Detailed inline comments have been added to the relevant code sections.`
         });
       }
     }
