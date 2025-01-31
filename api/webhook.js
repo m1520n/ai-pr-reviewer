@@ -1,11 +1,6 @@
-require("dotenv").config();
-const express = require("express");
 const { Octokit } = require("@octokit/rest");
 const crypto = require('crypto');
 const OpenAI = require('openai');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
 
 // Initialize Octokit with GitHub token
 const octokit = new Octokit({
@@ -17,29 +12,20 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-app.use(express.json());
-
 // Verify GitHub webhook signature
-const verifyWebhookSignature = (req, res, next) => {
+const verifyWebhookSignature = (req) => {
   const signature = req.headers['x-hub-signature-256'];
   if (!signature) {
-    return res.status(401).json({ error: 'No signature found' });
+    throw new Error('No signature found');
   }
 
   const hmac = crypto.createHmac('sha256', process.env.WEBHOOK_SECRET);
   const digest = 'sha256=' + hmac.update(JSON.stringify(req.body)).digest('hex');
 
   if (signature !== digest) {
-    return res.status(401).json({ error: 'Invalid signature' });
+    throw new Error('Invalid signature');
   }
-
-  next();
 };
-
-// Health check endpoint
-app.get("/", (req, res) => {
-  res.send("AI PR Reviewer is running!");
-});
 
 // Function to get PR diff
 async function getPRDiff(owner, repo, pull_number) {
@@ -88,13 +74,19 @@ Format your response in a clear, constructive manner.`;
   return completion.choices[0].message.content;
 }
 
-// GitHub webhook endpoint
-app.post("/webhook", verifyWebhookSignature, async (req, res) => {
-  const event = req.headers['x-github-event'];
-  const payload = req.body;
+export default async function handler(req, res) {
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-  if (event === 'pull_request') {
-    try {
+  try {
+    verifyWebhookSignature(req);
+    
+    const event = req.headers['x-github-event'];
+    const payload = req.body;
+
+    if (event === 'pull_request') {
       if (payload.action === 'opened' || payload.action === 'synchronize') {
         const { pull_request, repository } = payload;
         
@@ -117,15 +109,11 @@ app.post("/webhook", verifyWebhookSignature, async (req, res) => {
           body: aiReview
         });
       }
-    } catch (error) {
-      console.error('Error processing webhook:', error);
-      return res.status(500).json({ error: 'Internal server error' });
     }
+
+    res.status(200).json({ message: 'Webhook processed successfully' });
+  } catch (error) {
+    console.error('Error processing webhook:', error);
+    res.status(500).json({ error: error.message });
   }
-
-  res.status(200).json({ message: 'Webhook processed successfully' });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+} 
