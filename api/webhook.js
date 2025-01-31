@@ -2,6 +2,8 @@ const { Octokit } = require("@octokit/rest");
 const crypto = require('crypto');
 const OpenAI = require('openai');
 
+export const maxDuration = 60; // This function can run for a maximum of 60 seconds
+
 // Initialize Octokit with GitHub token
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN
