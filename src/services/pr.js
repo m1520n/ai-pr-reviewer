@@ -23,9 +23,8 @@ const prService = {
       const comments = commentService.processAnalyses(analyses);
       console.log(`Generated ${comments.length} comments:`, comments);
 
-      // Create review
-      await githubService.createReview(owner, repo, prNumber, comments);
-      console.log('Review posted successfully');
+      // Create review with files for position mapping
+      await githubService.createReview(owner, repo, prNumber, comments, files);
     } catch (error) {
       console.error('Error in handlePREvent:', error);
       throw error;
