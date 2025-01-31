@@ -9,8 +9,7 @@
   "routes": [
     {
       "src": "/webhook",
-      "dest": "/api/webhook.js",
-      "maxDuration": 60
+      "dest": "/api/webhook.js"
     },
     {
       "src": "/",
