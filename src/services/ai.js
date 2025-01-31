@@ -4,6 +4,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+const model = "gpt-4o-mini";
+
 const aiService = {
   async analyzeFile(file) {
     try {
@@ -16,7 +18,7 @@ List only critical issues (security, major bugs, severe performance):
 Format each as: "LINE <number>: [<type>] <brief_issue>"`;
 
       const completion = await openai.chat.completions.create({
-        model: "gpt-4",
+        model,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
         max_tokens: 300
