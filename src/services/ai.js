@@ -11,11 +11,11 @@ const aiService = {
   async analyzeFile(file) {
     try {
       console.log(`Analyzing file: ${file.filename}`);
-      const codeContent = extractCodeFromPatch(file.patch);
+      const { code, lineMapping } = extractCodeFromPatch(file.patch);
       
       const prompt = `Review this code change (be concise):
 ${file.filename}:
-${codeContent}
+${code}
 
 List only critical issues (security, major bugs, severe performance):
 Format each as: "LINE <number>: [<type>] <brief_issue>"`;
@@ -27,12 +27,19 @@ Format each as: "LINE <number>: [<type>] <brief_issue>"`;
         max_tokens: 300
       });
 
-      const analysis = {
+      // Map the AI response line numbers back to original file line numbers
+      let analysis = completion.choices[0].message.content;
+      for (let [outputLine, originalLine] of lineMapping.entries()) {
+        const pattern = new RegExp(`LINE ${outputLine + 1}:`, 'g');
+        analysis = analysis.replace(pattern, `LINE ${originalLine}:`);
+      }
+
+      const result = {
         filename: file.filename,
-        analysis: completion.choices[0].message.content
+        analysis
       };
-      console.log(`Analysis completed for ${file.filename}:`, analysis);
-      return analysis;
+      console.log(`Analysis completed for ${file.filename}:`, result);
+      return result;
     } catch (error) {
       console.error(`Error analyzing file ${file.filename}:`, error);
       throw error;
