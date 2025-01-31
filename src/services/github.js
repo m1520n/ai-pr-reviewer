@@ -25,34 +25,50 @@ const githubService = {
       const filteredFiles = files
         .filter(file => file.status !== 'removed')
         .map(file => {
+          // For new files, each line number is its own position
+          if (file.status === 'added') {
+            const positions = new Map();
+            const lines = (file.patch || '').split('\n');
+            let lineNumber = 1;
+            
+            lines.forEach((line, index) => {
+              if (line.startsWith('+') || !line.startsWith('-')) {
+                positions.set(lineNumber, index);
+                lineNumber++;
+              }
+            });
+
+            return {
+              filename: file.filename,
+              patch: file.patch || 'No changes available',
+              status: file.status,
+              positions,
+              raw_patch: file.patch
+            };
+          }
+
+          // For modified files, use the hunk-based approach
           const positions = new Map();
           let currentLine = 0;
           
           if (file.patch) {
-            const hunks = file.patch.split(/^@@/m);
+            const hunks = file.patch.split('\n');
+            let position = 0;
+            let inHunk = false;
             
-            // Process each hunk
-            hunks.forEach(hunk => {
-              if (!hunk.trim()) return;
-              
-              // Parse hunk header
-              const headerMatch = hunk.match(/^[ -](\d+),\d+ \+(\d+),\d+/);
-              if (headerMatch) {
-                currentLine = parseInt(headerMatch[2]);
-                
-                // Process hunk lines
-                const lines = hunk.split('\n').slice(1);
-                let position = 0;
-                
-                lines.forEach(line => {
-                  if (line.startsWith('+') || line.startsWith(' ')) {
-                    positions.set(currentLine, position);
-                    currentLine++;
-                  }
-                  if (!line.startsWith('-')) {
-                    position++;
-                  }
-                });
+            hunks.forEach(line => {
+              if (line.startsWith('@@')) {
+                const match = line.match(/@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+                if (match) {
+                  currentLine = parseInt(match[1]);
+                  inHunk = true;
+                }
+              } else if (inHunk) {
+                if (!line.startsWith('-')) {
+                  positions.set(currentLine, position);
+                  currentLine++;
+                }
+                position++;
               }
             });
           }
@@ -62,12 +78,13 @@ const githubService = {
             patch: file.patch || 'No changes available',
             status: file.status,
             positions,
-            raw_patch: file.patch // Keep raw patch for debugging
+            raw_patch: file.patch
           };
         });
 
       console.log('Processed files:', filteredFiles.map(f => ({
         filename: f.filename,
+        status: f.status,
         positions: Array.from(f.positions.entries())
       })));
       
@@ -107,7 +124,6 @@ const githubService = {
         const position = this.findPositionForLine(file, comment.line);
         if (position === null) {
           console.log(`Could not find position for line ${comment.line} in ${comment.path}`);
-          console.log('File patch:', file.raw_patch);
           return null;
         }
 
