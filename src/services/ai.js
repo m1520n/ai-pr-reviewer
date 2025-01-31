@@ -5,7 +5,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-const model = "gpt-4";
+const model = "gpt-4o-mini";
 
 const aiService = {
   async analyzeFile(file) {
