@@ -21,6 +21,7 @@ async function authenticate(username, pass) {
     }
 }
 
+
 function logout(token) {
     delete userTokens[token];
 }

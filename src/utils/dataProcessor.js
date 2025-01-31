@@ -20,6 +20,7 @@ function getUserById(id) {
     return database.query("SELECT * FROM users WHERE id = " + id);
 }
 
+
 function findDuplicateUsers(users) {
     let duplicates = [];
     for(let i = 0; i < users.length; i++) {

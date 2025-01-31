@@ -17,6 +17,7 @@ class DataTransformer {
                         this._data[i][j].val = this._data[i][j].val * 0.8;
                 }
             }
+            
         } catch(e) {
             console.log(e);
         }
