@@ -1,15 +1,11 @@
-// Global variable - bad practice
 var globalData = [];
 
-// Function with multiple responsibilities and poor error handling
 function processUserData(data) {
-    // Direct array mutation
     globalData.push(data);
 
-    // Nested callbacks - callback hell
     setTimeout(() => {
         database.query("SELECT * FROM users", (err, res) => {
-            if(err) console.log(err);  // Poor error handling
+            if(err) console.log(err);
             
             setTimeout(() => {
                 processMoreData(res, (processedData) => {
@@ -20,12 +16,10 @@ function processUserData(data) {
     }, 2000);
 }
 
-// Security vulnerability - SQL injection risk
 function getUserById(id) {
     return database.query("SELECT * FROM users WHERE id = " + id);
 }
 
-// Performance issue - O(n^2) complexity
 function findDuplicateUsers(users) {
     let duplicates = [];
     for(let i = 0; i < users.length; i++) {
@@ -38,16 +32,14 @@ function findDuplicateUsers(users) {
     return duplicates;
 }
 
-// Memory leak potential
 class DataManager {
     constructor() {
         this.cache = {};
         setInterval(() => {
             this.cleanCache();
-        }, 5000);  // Interval never cleared
+        }, 5000);
     }
 
-    // Inconsistent return types
     cleanCache() {
         if(Object.keys(this.cache).length > 1000) {
             this.cache = {};
@@ -56,7 +48,6 @@ class DataManager {
     }
 }
 
-// Magic numbers and poor variable naming
 function calc(a, b) {
     if(a > 1000) {
         return a * 1.5 + b * 0.8;
