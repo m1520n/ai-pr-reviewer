@@ -1,18 +1,21 @@
 const OpenAI = require('openai');
+const { extractCodeFromPatch } = require('../utils/patch');
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-const model = "gpt-4o-mini";
+const model = "gpt-4";
 
 const aiService = {
   async analyzeFile(file) {
     try {
       console.log(`Analyzing file: ${file.filename}`);
+      const codeContent = extractCodeFromPatch(file.patch);
+      
       const prompt = `Review this code change (be concise):
 ${file.filename}:
-${file.patch}
+${codeContent}
 
 List only critical issues (security, major bugs, severe performance):
 Format each as: "LINE <number>: [<type>] <brief_issue>"`;
