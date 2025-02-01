@@ -21,6 +21,7 @@ An intelligent GitHub PR review bot that automatically analyzes pull requests us
 - npm or yarn
 - GitHub account with repository admin access
 - OpenAI API key
+- Vercel account
 
 ## Installation
 
@@ -48,60 +49,34 @@ An intelligent GitHub PR review bot that automatically analyzes pull requests us
    WEBHOOK_SECRET=your_webhook_secret_here
    ```
 
-## GitHub App Setup
+4. Generate WEBHOOK_SECRET and copy into .env and GitHub Webhook secret
+   ```bash
+   openssl rand -base64 32
+   ```
 
-1. Create a new GitHub App:
-   - Go to [GitHub Developer Settings](https://github.com/settings/developers)
-   - Select "GitHub Apps" → "New GitHub App"
-   - Fill in the following details:
-     - Name: `Your PR Reviewer Name`
-     - Homepage URL: Your server URL
-     - Webhook URL: `https://your-domain.com/webhook`
-     - Webhook Secret: Generate a secure random string
-   
+## Vercel Setup
+
+1. Create a Vercel account
+2. Deploy the app to Vercel
+
+## GitHub Setup
+
+1. Add Webhook to GitHub
+   - Go to your repository
+   - Click on Settings
+   - Click on Webhooks
+   - Click on Add webhook
+   - Set the URL to your Vercel URL
+   - Set the content type to application/json
+   - Set the secret to the WEBHOOK_SECRET you generated
+   - Set the events to Pull request
+   - Set the active to true
+
 2. Set Required Permissions:
    - Repository Permissions:
      - Pull requests: `Read & Write`
      - Contents: `Read`
      - Issues: `Write`
-   
-3. Subscribe to Events:
-   - Pull request
-
-4. After creating the app:
-   - Generate and download a private key
-   - Note your GitHub App ID
-   - Save your webhook secret in the `.env` file
-
-## Deployment
-
-### Option 1: Local Development
-
-1. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-2. Use ngrok to create a public URL:
-   ```bash
-   ngrok http 3000
-   ```
-
-3. Update your GitHub App's webhook URL with the ngrok URL
-
-### Option 2: Production Deployment
-
-Deploy to your preferred hosting platform:
-
-- Heroku
-- DigitalOcean
-- AWS
-- Any other platform supporting Node.js
-
-Remember to:
-1. Set up all environment variables
-2. Ensure HTTPS is enabled
-3. Update the GitHub App webhook URL
 
 ## Usage
 
@@ -114,7 +89,3 @@ Once set up, the bot will automatically:
    - Potential issues
    - Security concerns
    - Suggested improvements
-
-## Example Review
-
-The bot will provide reviews in this format:
