@@ -107,7 +107,7 @@ export async function analyzeFile(file: PRFile): Promise<AnalysisResult> {
     console.error(`Error analyzing file ${file.filename}:`, error);
     return {
       filename: file.filename,
-      analysis: `Error analyzing file: ${error.message}`,
+      analysis: `Error analyzing file: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }
