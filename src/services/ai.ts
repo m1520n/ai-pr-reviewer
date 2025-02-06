@@ -7,7 +7,7 @@ const openai = new OpenAI({
 });
 
 // Use environment variable for model with fallback
-const MODEL = process.env.OPENAI_MODEL || "gpt-4";
+const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const MAX_TOKENS_ANALYSIS = 500;
 const MAX_TOKENS_DESCRIPTION = 1000;
 
