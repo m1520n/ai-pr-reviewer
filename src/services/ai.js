@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { extractCodeFromPatch } from '../utils/patch.js';
+import patchUtils from '../utils/patch.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -17,7 +17,7 @@ const aiService = {
       
       // Prepare a summary of changes for each file
       const fileChanges = files.map(file => {
-        const { code } = extractCodeFromPatch(file.patch);
+        const { code } = patchUtils.extractCodeFromPatch(file.patch);
         return `File: ${file.filename}\nChanges:\n${code}\n`;
       }).join('\n---\n');
 
@@ -50,7 +50,7 @@ const aiService = {
   async analyzeFile(file) {
     try {
       console.log(`Analyzing file: ${file.filename}`);
-      const { code, lineMapping } = extractCodeFromPatch(file.patch);
+      const { code, lineMapping } = patchUtils.extractCodeFromPatch(file.patch);
       
       if (!code.trim()) {
         console.log(`Skipping empty file: ${file.filename}`);
