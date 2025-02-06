@@ -1,12 +1,14 @@
+import { Request, Response } from 'express';
 import securityUtils from '../src/utils/security.js';
-import prService from '../src/services/pr.js';
+import prService from '../src/services/pr.ts';
 
 export const maxDuration = 60;
 
 // List of PR actions we want to handle
 const SUPPORTED_ACTIONS = ['opened', 'draft', 'ready_for_review', 'synchronize'];
+const PR_EVENT = 'pull_request';
 
-export default async function handler(req, res) {
+export default async function handler(req: Request, res: Response) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -17,25 +19,20 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Verify the webhook signature
     securityUtils.verifyWebhookSignature(req);
     
     const payload = req.body;
+
     if (!payload || !payload.action) {
       return res.status(400).json({ error: 'Invalid webhook payload' });
     }
 
-    if (event === 'pull_request' && SUPPORTED_ACTIONS.includes(payload.action)) {
+    if (event === PR_EVENT && SUPPORTED_ACTIONS.includes(payload.action)) {
       console.log(`Processing ${event} event with action ${payload.action}`);
       await prService.handlePREvent(payload);
       res.status(200).json({ 
         message: 'Webhook processed successfully',
-        action: payload.action
-      });
-    } else {
-      console.log(`Skipping event: ${event} with action: ${payload.action}`);
-      res.status(200).json({ 
-        message: 'Event skipped - not a supported PR action',
-        event,
         action: payload.action
       });
     }

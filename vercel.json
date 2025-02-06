@@ -11,6 +11,10 @@
       "dest": "/api/webhook.js"
     },
     {
+      "src": "/callback",
+      "dest": "/api/callback.js"
+    },
+    {
       "src": "/",
       "dest": "/api/index.js"
     }

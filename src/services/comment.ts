@@ -1,5 +1,11 @@
+import { AnalysisResult } from '../types/index.ts';
 const commentService = {
-  parseAnalysisToComments(analysis) {
+  /**
+   * Parse an analysis into comments
+   * @param analysis - The analysis to parse
+   * @returns The parsed comments
+   */
+  parseAnalysisToComments(analysis: AnalysisResult) {
     try {      
       // Split the analysis into lines and process each line
       const comments = analysis.analysis
@@ -29,7 +35,12 @@ const commentService = {
     }
   },
 
-  processAnalyses(analyses) {
+  /**
+   * Process a list of analyses into comments
+   * @param analyses - The analyses to process
+   * @returns The processed comments
+   */
+  processAnalyses(analyses: AnalysisResult[]) {
     try {
       const allComments = analyses.flatMap(analysis => this.parseAnalysisToComments(analysis));
       

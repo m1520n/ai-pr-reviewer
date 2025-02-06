@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import patchUtils from '../utils/patch.js';
-
+import { PRFile } from '../types/index.ts';
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
@@ -11,7 +11,12 @@ const MAX_TOKENS_ANALYSIS = 500;
 const MAX_TOKENS_DESCRIPTION = 1000;
 
 const aiService = {
-  async generatePRDescription(files) {
+  /**
+   * Generate a pull request description for a list of files
+   * @param files - The list of files to generate a description for
+   * @returns A promise resolving to the generated pull request description
+   */
+  async generatePRDescription(files: PRFile[]) {
     try {
       console.log('Generating PR description for', files.length, 'files');
       
@@ -47,7 +52,12 @@ const aiService = {
     }
   },
 
-  async analyzeFile(file) {
+  /**
+   * Analyze a file for critical issues
+   * @param file - The file to analyze
+   * @returns A promise resolving to the analysis of the file
+   */
+  async analyzeFile(file: PRFile) {
     try {
       console.log(`Analyzing file: ${file.filename}`);
       const { code, lineMapping } = patchUtils.extractCodeFromPatch(file.patch);
@@ -80,7 +90,7 @@ const aiService = {
       
       for (let [outputLine, originalLine] of lineMapping.entries()) {
         const pattern = new RegExp(`LINE ${outputLine + 1}:`, 'g');
-        analysis = analysis.replace(pattern, `LINE ${originalLine}:`);
+        analysis = analysis ? analysis.replace(pattern, `LINE ${originalLine}:`) : '';
       }
 
       const result = {
@@ -98,7 +108,12 @@ const aiService = {
     }
   },
 
-  async analyzeFiles(files) {
+  /**
+   * Analyze a list of files for critical issues
+   * @param files - The list of files to analyze
+   * @returns A promise resolving to the analysis of the files
+   */
+  async analyzeFiles(files: PRFile[]) {
     console.log(`Starting analysis of ${files.length} files`);
     const results = await Promise.all(files.map(file => this.analyzeFile(file)));
     return results.filter(result => result.analysis); // Filter out empty analyses
