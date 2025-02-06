@@ -21,6 +21,7 @@ export default async function handler(req: Request, res: Response): Promise<void
 
   const event = req.headers["x-github-event"];
   if (!event) {
+    console.error("Missing x-github-event header");
     res.status(400).json({ error: "Missing x-github-event header" });
     return;
   }
@@ -47,6 +48,10 @@ export default async function handler(req: Request, res: Response): Promise<void
       return;
     }
 
+    console.error("Unsupported event or action", {
+      event,
+      action: payload.action,
+    });
     res.status(400).json({ error: "Unsupported event or action" });
   } catch (error) {
     console.error("Error processing webhook:", {
