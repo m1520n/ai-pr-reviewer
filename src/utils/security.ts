@@ -1,6 +1,7 @@
 import crypto from 'crypto';
+import { Request } from 'express';
 
-export const verifyWebhookSignature = (req) => {
+export const verifyWebhookSignature = (req: Request) => {
   const signature = req.headers['x-hub-signature-256'];
   const secret = process.env.WEBHOOK_SECRET;
 
@@ -9,7 +10,7 @@ export const verifyWebhookSignature = (req) => {
   }
 
   if (!signature) {
-    throw new Error('No signature found');
+    throw new Error('No signature found');  
   }
 
   const hmac = crypto.createHmac('sha256', secret);
