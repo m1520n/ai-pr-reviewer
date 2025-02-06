@@ -1,4 +1,4 @@
-import { verifyWebhookSignature } from '../src/utils/security.js';
+import securityUtils from '../src/utils/security.js';
 import prService from '../src/services/pr.js';
 
 export const maxDuration = 60;
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    verifyWebhookSignature(req);
+    securityUtils.verifyWebhookSignature(req);
     
     const payload = req.body;
     if (!payload || !payload.action) {
