@@ -1,7 +1,8 @@
 import { Octokit } from "@octokit/rest";
 import { createAppAuth } from "@octokit/auth-app";
 import type { RestEndpointMethodTypes } from "@octokit/plugin-rest-endpoint-methods";
-import { PRFile, ReviewComment } from "../types";
+import { PRFile, ReviewComment, FileStatus } from "../types";
+import { processPatch, findPositionForLine } from "../utils/patch";
 
 type PullsListFilesResponse =
   RestEndpointMethodTypes["pulls"]["listFiles"]["response"];
@@ -74,95 +75,16 @@ export async function getPRFiles(
       pull_number: pullNumber,
     });
 
-    // Process files and calculate positions for each line.
-    // This is a workaround for the fact that the GitHub API doesn't provide line numbers for the positions.
-    const filteredFiles = files
+    // Process files and calculate positions for each line
+    return files
       .filter((file: GitHubFile) => file.status !== "removed")
-      .map((file: GitHubFile): PRFile => {
-        // For new files, each line number is its own position
-        if (file.status === "added") {
-          const positions = new Map<number, number>();
-          const lines = (file.patch || "").split("\n");
-          let lineNumber = 1;
-
-          lines.forEach((line, index) => {
-            if (line.startsWith("+") || !line.startsWith("-")) {
-              positions.set(lineNumber, index);
-              lineNumber++;
-            }
-          });
-
-          return {
-            filename: file.filename,
-            patch: file.patch || "No changes available",
-            status: file.status,
-            positions,
-            raw_patch: file.patch,
-          };
-        }
-
-        // For modified files, use the hunk-based approach
-        const positions = new Map<number, number>();
-        let currentLine = 0;
-
-        if (file.patch) {
-          const hunks = file.patch.split("\n");
-          let position = 0;
-          let inHunk = false;
-
-          hunks.forEach((line) => {
-            if (line.startsWith("@@")) {
-              const match = line.match(/@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-              if (match) {
-                currentLine = parseInt(match[1], 10);
-                inHunk = true;
-              }
-            } else if (inHunk) {
-              if (!line.startsWith("-")) {
-                positions.set(currentLine, position);
-                currentLine++;
-              }
-              position++;
-            }
-          });
-        }
-
-        return {
-          filename: file.filename,
-          patch: file.patch || "No changes available",
-          status: file.status,
-          positions,
-          raw_patch: file.patch,
-        };
-      });
-
-    return filteredFiles;
+      .map((file: GitHubFile): PRFile => 
+        processPatch(file.filename, file.patch, file.status as FileStatus)
+      );
   } catch (error) {
     console.error("Error in getPRFiles:", error);
     throw error;
   }
-}
-
-/**
- * Find the position for a specific line number in a file
- * @param file - The PRFile object containing the file information
- * @param lineNumber - The line number to find the position for
- * @returns The position of the line number in the file, or null if not found
- */
-export function findPositionForLine(
-  file: PRFile,
-  lineNumber: number
-): number | null {
-  const position = file.positions.get(lineNumber);
-  if (position !== undefined) {
-    console.log(
-      `Found position ${position} for line ${lineNumber} in ${file.filename}`
-    );
-    return position;
-  }
-  console.log(`No position found for line ${lineNumber} in ${file.filename}`);
-  console.log("Available positions:", Array.from(file.positions.entries()));
-  return null;
 }
 
 /**
