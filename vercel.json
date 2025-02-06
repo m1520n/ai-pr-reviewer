@@ -1,22 +1,22 @@
 {
   "version": 2,
   "functions": {
-    "api/**/*.js": {
+    "api/**/*.ts": {
       "maxDuration": 60
     }
   },
   "routes": [
     {
       "src": "/webhook",
-      "dest": "/api/webhook.js"
+      "dest": "/api/webhook"
     },
     {
       "src": "/callback",
-      "dest": "/api/callback.js"
+      "dest": "/api/callback"
     },
     {
       "src": "/",
-      "dest": "/api/index.js"
+      "dest": "/api/index"
     }
   ]
 } 
