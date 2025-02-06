@@ -55,4 +55,4 @@ const patchUtils = {
   }
 };
 
-module.exports = patchUtils;
+export default patchUtils;

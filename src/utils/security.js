@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 const verifyWebhookSignature = (req) => {
   const signature = req.headers['x-hub-signature-256'];
@@ -14,4 +14,4 @@ const verifyWebhookSignature = (req) => {
   }
 };
 
-module.exports = { verifyWebhookSignature }; 
+export default { verifyWebhookSignature };

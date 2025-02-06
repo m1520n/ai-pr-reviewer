@@ -1,5 +1,5 @@
-const OpenAI = require('openai');
-const { extractCodeFromPatch } = require('../utils/patch');
+import OpenAI from 'openai';
+import { extractCodeFromPatch } from '../utils/patch';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -105,4 +105,4 @@ const aiService = {
   }
 };
 
-module.exports = aiService; 
+export default aiService;

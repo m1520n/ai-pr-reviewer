@@ -184,4 +184,4 @@ class GitHubService {
   }
 }
 
-export default new GitHubService(); 
+export default new GitHubService();

@@ -41,4 +41,4 @@ const commentService = {
   }
 };
 
-module.exports = commentService; 
+export default commentService;
