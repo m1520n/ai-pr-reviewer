@@ -2,6 +2,7 @@
   "name": "ai-pr-reviewer",
   "version": "1.0.0",
   "description": "AI-powered GitHub PR review tool",
+  "type": "module",
   "main": "src/index.js",
   "directories": {
     "test": "tests"
@@ -22,5 +23,8 @@
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
+  },
+  "engines": {
+    "node": ">=14.16"
   }
 }

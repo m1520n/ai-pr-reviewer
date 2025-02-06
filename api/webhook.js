@@ -1,5 +1,5 @@
-const { verifyWebhookSignature } = require('../src/utils/security');
-const prService = require('../src/services/pr');
+import { verifyWebhookSignature } from '../src/utils/security.js';
+import prService from '../src/services/pr.js';
 
 export const maxDuration = 60;
 

@@ -1,5 +1,5 @@
-const { createAppAuth } = require('@octokit/auth-app');
-const { Octokit } = require('@octokit/rest');
+import { createAppAuth } from '@octokit/auth-app';
+import { Octokit } from '@octokit/rest';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

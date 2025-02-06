@@ -1,5 +1,5 @@
-const { Octokit } = require('@octokit/rest');
-const { createAppAuth } = require('@octokit/auth-app');
+import { Octokit } from '@octokit/rest';
+import { createAppAuth } from '@octokit/auth-app';
 
 class GitHubService {
   constructor() {
@@ -184,4 +184,4 @@ class GitHubService {
   }
 }
 
-module.exports = new GitHubService(); 
+export default new GitHubService(); 

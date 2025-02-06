@@ -1,6 +1,6 @@
-const githubService = require('./github');
-const aiService = require('./ai');
-const commentService = require('./comment');
+import githubService from './github.js';
+import aiService from './ai.js';
+import commentService from './comment.js';
 
 const prService = {
   async handlePREvent(payload) {
@@ -89,4 +89,4 @@ const prService = {
   }
 };
 
-module.exports = prService; 
+export default prService; 
