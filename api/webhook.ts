@@ -32,6 +32,7 @@ export default async function handler(req: Request, res: Response): Promise<void
     const payload = req.body;
 
     if (!payload || !payload.action) {
+      console.error("Invalid webhook payload", payload);
       res.status(400).json({ error: "Invalid webhook payload" });
       return;
     }
