@@ -48,11 +48,7 @@ export default async function handler(req: Request, res: Response): Promise<void
       return;
     }
 
-    console.error("Unsupported event or action", {
-      event,
-      action: payload.action,
-    });
-    res.status(400).json({ error: "Unsupported event or action" });
+    res.status(200).json({ error: "Unsupported event or action" });
   } catch (error) {
     console.error("Error processing webhook:", {
       event,
