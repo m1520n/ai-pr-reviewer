@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { extractCodeFromPatch } from "../utils/patch";
+import { extractCodeFromPatch } from "../utils/patch.js";
 import { PRFile, AnalysisResult } from "../types";
 
 const openai = new OpenAI({

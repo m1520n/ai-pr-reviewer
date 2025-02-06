@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { verifyWebhookSignature } from "../src/utils/security";
-import { handlePREvent } from "../src/services/pr";
+import { verifyWebhookSignature } from "../src/utils/security.js";
+import { handlePREvent } from "../src/services/pr.js";
 
 export const maxDuration = 60;
 

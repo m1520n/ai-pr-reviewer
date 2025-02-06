@@ -1,8 +1,8 @@
 import { Octokit } from "@octokit/rest";
 import { createAppAuth } from "@octokit/auth-app";
 import type { RestEndpointMethodTypes } from "@octokit/plugin-rest-endpoint-methods";
-import { PRFile, ReviewComment, FileStatus } from "../types";
-import { processPatch, findPositionForLine } from "../utils/patch";
+import { PRFile, ReviewComment, FileStatus } from "../types/index.js";
+import { processPatch, findPositionForLine } from "../utils/patch.js";
 
 type PullsListFilesResponse =
   RestEndpointMethodTypes["pulls"]["listFiles"]["response"];

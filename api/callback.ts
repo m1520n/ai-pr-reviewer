@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getInstallationOctokit } from '../src/services/github';
+import { getInstallationOctokit } from '../src/services/github.js';
 
 export default async function handler(
   req: Request,

@@ -1,4 +1,4 @@
-import { PRFile, FileStatus } from '../types';
+import { PRFile, FileStatus } from '../types/index.js';
 
 interface ExtractCodeResult {
   code: string;

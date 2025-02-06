@@ -1,7 +1,7 @@
-import { getPRFiles, updatePRDescription, createReview } from "./github";
-import { generatePRDescription, analyzeFiles } from "./ai";
-import { processAnalyses } from "./comment";
-import { PRFile } from "../types";
+import { getPRFiles, updatePRDescription, createReview } from "./github.js";
+import { generatePRDescription, analyzeFiles } from "./ai.js";
+import { processAnalyses } from "./comment.js";
+import { PRFile } from "../types/index.js";
 
 type Payload = {
   pull_request: {
