@@ -5,6 +5,7 @@
   "keywords": ["github", "pr", "review", "ai"],
   "author": "Michał Winiarski",
   "license": "MIT",
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "type-check": "tsc --noEmit"
