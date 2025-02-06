@@ -1,12 +1,35 @@
-const { Octokit } = require("@octokit/rest");
+const { Octokit } = require('@octokit/rest');
+const { createAppAuth } = require('@octokit/auth-app');
 
-const octokit = new Octokit({
-  auth: process.env.GITHUB_TOKEN
-});
+class GitHubService {
+  constructor() {
+    this.appAuth = createAppAuth({
+      appId: process.env.GITHUB_APP_ID,
+      privateKey: process.env.GITHUB_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    });
+  }
 
-const githubService = {
-  async getPRFiles(owner, repo, pull_number) {
+  async getInstallationOctokit(installationId) {
     try {
+      const installationAuthentication = await this.appAuth({
+        type: 'installation',
+        installationId: installationId,
+      });
+
+      return new Octokit({
+        auth: installationAuthentication.token,
+      });
+    } catch (error) {
+      console.error('Error getting installation token:', error);
+      throw error;
+    }
+  }
+
+  async getPRFiles(owner, repo, pull_number, installationId) {
+    try {
+      const octokit = await this.getInstallationOctokit(installationId);
       const { data: files } = await octokit.pulls.listFiles({
         owner,
         repo,
@@ -79,7 +102,7 @@ const githubService = {
       console.error('Error in getPRFiles:', error);
       throw error;
     }
-  },
+  }
 
   findPositionForLine(file, lineNumber) {
     const position = file.positions.get(lineNumber);
@@ -90,14 +113,16 @@ const githubService = {
     console.log(`No position found for line ${lineNumber} in ${file.filename}`);
     console.log('Available positions:', Array.from(file.positions.entries()));
     return null;
-  },
+  }
 
-  async createReview(owner, repo, pull_number, comments, files) {
+  async createReview(owner, repo, pull_number, comments, files, installationId) {
     try {
       if (comments.length === 0) {
         console.log('No comments to post, skipping review creation');
         return;
       }
+
+      const octokit = await this.getInstallationOctokit(installationId);
 
       // Convert line numbers to positions
       const reviewComments = comments.map(comment => {
@@ -138,11 +163,13 @@ const githubService = {
       console.error('Error in createReview:', error);
       throw error;
     }
-  },
+  }
 
-  async updatePRDescription(owner, repo, pull_number, description) {
+  async updatePRDescription(owner, repo, pull_number, description, installationId) {
     try {
       console.log(`Updating PR description for ${owner}/${repo}#${pull_number}`);
+      const octokit = await this.getInstallationOctokit(installationId);
+      
       await octokit.pulls.update({
         owner,
         repo,
@@ -155,6 +182,6 @@ const githubService = {
       throw error;
     }
   }
-};
+}
 
-module.exports = githubService; 
+module.exports = new GitHubService(); 
