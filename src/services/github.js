@@ -138,6 +138,22 @@ const githubService = {
       console.error('Error in createReview:', error);
       throw error;
     }
+  },
+
+  async updatePRDescription(owner, repo, pull_number, description) {
+    try {
+      console.log(`Updating PR description for ${owner}/${repo}#${pull_number}`);
+      await octokit.pulls.update({
+        owner,
+        repo,
+        pull_number,
+        body: description
+      });
+      console.log('PR description updated successfully');
+    } catch (error) {
+      console.error('Error updating PR description:', error);
+      throw error;
+    }
   }
 };
 
