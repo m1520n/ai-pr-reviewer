@@ -2,7 +2,6 @@
   "name": "ai-pr-reviewer",
   "version": "1.0.0",
   "description": "AI-powered GitHub PR review tool",
-  "type": "module",
   "main": "dist/index.js",
   "directories": {
     "test": "tests"
