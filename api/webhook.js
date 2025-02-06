@@ -1,121 +1,55 @@
-const { Octokit } = require("@octokit/rest");
-const crypto = require('crypto');
-const OpenAI = require('openai');
+const { verifyWebhookSignature } = require('../src/utils/security');
+const prService = require('../src/services/pr');
 
-export const maxDuration = 60; // This function can run for a maximum of 60 seconds
+export const maxDuration = 60;
 
-// Initialize Octokit with GitHub token
-const octokit = new Octokit({
-  auth: process.env.GITHUB_TOKEN
-});
-
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-// Verify GitHub webhook signature
-const verifyWebhookSignature = (req) => {
-  const signature = req.headers['x-hub-signature-256'];
-  if (!signature) {
-    throw new Error('No signature found');
-  }
-
-  const hmac = crypto.createHmac('sha256', process.env.WEBHOOK_SECRET);
-  const digest = 'sha256=' + hmac.update(JSON.stringify(req.body)).digest('hex');
-
-  if (signature !== digest) {
-    throw new Error('Invalid signature');
-  }
-};
-
-// Function to get PR diff
-async function getPRDiff(owner, repo, pull_number) {
-  const { data: files } = await octokit.pulls.listFiles({
-    owner,
-    repo,
-    pull_number,
-  });
-  
-  return files.map(file => ({
-    filename: file.filename,
-    patch: file.patch || '',
-    status: file.status
-  }));
-}
-
-// Function to analyze PR with AI
-async function analyzeWithAI(prDetails, diff) {
-  const prompt = `Please review this pull request:
-Title: ${prDetails.title}
-Description: ${prDetails.body || 'No description provided'}
-
-Changes:
-${diff.map(file => `
-File: ${file.filename}
-Status: ${file.status}
-Diff:
-${file.patch || 'No diff available'}`).join('\n')}
-
-Please provide a code review focusing on:
-1. Potential bugs or issues
-2. Code style and best practices
-3. Security concerns
-4. Performance implications
-5. Suggestions for improvement
-
-Format your response in a clear, constructive manner.`;
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.7,
-    max_tokens: 1500
-  });
-
-  return completion.choices[0].message.content;
-}
+// List of PR actions we want to handle
+const SUPPORTED_ACTIONS = ['opened', 'draft', 'ready_for_review', 'synchronize'];
 
 export default async function handler(req, res) {
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const event = req.headers['x-github-event'];
+  if (!event) {
+    return res.status(400).json({ error: 'Missing x-github-event header' });
   }
 
   try {
     verifyWebhookSignature(req);
     
-    const event = req.headers['x-github-event'];
     const payload = req.body;
-
-    if (event === 'pull_request') {
-      if (payload.action === 'opened' || payload.action === 'synchronize') {
-        const { pull_request, repository } = payload;
-        
-        // Get PR details
-        const prNumber = pull_request.number;
-        const owner = repository.owner.login;
-        const repo = repository.name;
-
-        // Get PR diff
-        const diff = await getPRDiff(owner, repo, prNumber);
-
-        // Analyze with AI
-        const aiReview = await analyzeWithAI(pull_request, diff);
-
-        // Post review comment
-        await octokit.issues.createComment({
-          owner,
-          repo,
-          issue_number: prNumber,
-          body: aiReview
-        });
-      }
+    if (!payload || !payload.action) {
+      return res.status(400).json({ error: 'Invalid webhook payload' });
     }
 
-    res.status(200).json({ message: 'Webhook processed successfully' });
+    if (event === 'pull_request' && SUPPORTED_ACTIONS.includes(payload.action)) {
+      console.log(`Processing ${event} event with action ${payload.action}`);
+      await prService.handlePREvent(payload);
+      res.status(200).json({ 
+        message: 'Webhook processed successfully',
+        action: payload.action
+      });
+    } else {
+      console.log(`Skipping event: ${event} with action: ${payload.action}`);
+      res.status(200).json({ 
+        message: 'Event skipped - not a supported PR action',
+        event,
+        action: payload.action
+      });
+    }
   } catch (error) {
-    console.error('Error processing webhook:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error processing webhook:', {
+      event,
+      error: error.message,
+      stack: error.stack
+    });
+    
+    const statusCode = error.name === 'ValidationError' ? 400 : 500;
+    res.status(statusCode).json({ 
+      error: error.message,
+      type: error.name 
+    });
   }
-} 
+}
