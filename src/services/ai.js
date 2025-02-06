@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { extractCodeFromPatch } from '../utils/patch';
+import { extractCodeFromPatch } from '../utils/patch.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
