@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import securityUtils from '../src/utils/security.js';
-import prService from '../src/services/pr.ts';
+import { verifyWebhookSignature} from '../src/utils/security';
+import { handlePREvent } from '../src/services/pr';
 
 export const maxDuration = 60;
 
@@ -20,7 +20,7 @@ export default async function handler(req: Request, res: Response) {
 
   try {
     // Verify the webhook signature
-    securityUtils.verifyWebhookSignature(req);
+    verifyWebhookSignature(req);
     
     const payload = req.body;
 
@@ -30,7 +30,7 @@ export default async function handler(req: Request, res: Response) {
 
     if (event === PR_EVENT && SUPPORTED_ACTIONS.includes(payload.action)) {
       console.log(`Processing ${event} event with action ${payload.action}`);
-      await prService.handlePREvent(payload);
+      await handlePREvent(payload);
       res.status(200).json({ 
         message: 'Webhook processed successfully',
         action: payload.action
