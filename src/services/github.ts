@@ -95,6 +95,7 @@ export async function getPRFiles(
  * @param comments - The comments to post in the review
  * @param files - The files to review
  * @param installationId - The installation ID to get the Octokit instance for
+ * @param complexityReport - Optional complexity report to include in the review
  */
 export async function createReview(
   owner: string,
@@ -102,11 +103,12 @@ export async function createReview(
   pullNumber: number,
   comments: ReviewComment[],
   files: PRFile[],
-  installationId: number
+  installationId: number,
+  complexityReport?: string
 ): Promise<void> {
   try {
-    if (comments.length === 0) {
-      console.log("No comments to post, skipping review creation");
+    if (comments.length === 0 && !complexityReport) {
+      console.log("No comments or complexity report to post, skipping review creation");
       return;
     }
 
@@ -139,18 +141,17 @@ export async function createReview(
 
     console.log("Creating review with comments:", reviewComments);
 
-    if (reviewComments.length > 0) {
-      await octokit.pulls.createReview({
-        owner,
-        repo,
-        pull_number: pullNumber,
-        event: "COMMENT",
-        comments: reviewComments,
-      });
-      console.log("Review created successfully");
-    } else {
-      console.log("No valid comments to post after position mapping");
-    }
+    // Create review with both comments and complexity report
+    await octokit.pulls.createReview({
+      owner,
+      repo,
+      pull_number: pullNumber,
+      event: "COMMENT",
+      body: complexityReport,
+      comments: reviewComments,
+    });
+
+    console.log("Review created successfully");
   } catch (error) {
     console.error("Error in createReview:", error);
     throw error;

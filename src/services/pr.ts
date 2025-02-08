@@ -1,6 +1,7 @@
 import { getPRFiles, updatePRDescription, createReview } from "./github.js";
 import { generatePRDescription, analyzeFiles } from "./ai.js";
 import { processAnalyses } from "./comment.js";
+import { analyzePRComplexity, formatComplexityReport } from "./complexity.js";
 import { PRFile } from "../types/index.js";
 
 type Payload = {
@@ -156,10 +157,20 @@ export const performCodeReview = async (
   const comments = processAnalyses(analyses);
   console.log(`Generated ${comments.length} comments`);
 
-  // Create review with files for position mapping
-  if (comments.length > 0) {
-    await createReview(owner, repo, prNumber, comments, files, installationId);
-  } else {
-    console.log("No issues found, skipping review creation");
-  }
+  // Generate complexity report
+  const complexityReport = analyzePRComplexity(files);
+  const formattedReport = formatComplexityReport(complexityReport);
+  console.log("Generated complexity report");
+
+  // Create review with both comments and complexity report
+  await createReview(
+    owner,
+    repo,
+    prNumber,
+    comments,
+    files,
+    installationId,
+    formattedReport
+  );
+  console.log("Review created with comments and complexity report");
 };

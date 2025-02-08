@@ -113,4 +113,18 @@ export interface ReviewRequest {
   event: 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
   body?: string;
   comments?: ReviewComment[];
+}
+
+export interface ComplexityMetrics {
+  filesChanged: number;
+  linesAdded: number;
+  linesRemoved: number;
+  cyclomaticComplexity: number;
+}
+
+export interface ComplexityReport {
+  score: number;
+  metrics: ComplexityMetrics;
+  level: 'low' | 'moderate' | 'high';
+  recommendations: string[];
 } 
